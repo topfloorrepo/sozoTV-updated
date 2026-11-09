@@ -1,3 +1,5 @@
+import 'package:soplay/core/tv/tv.dart';
+import 'package:soplay/core/tv/tv_text_entry.dart';
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -346,27 +348,29 @@ class _SourceCatalogPageState extends State<SourceCatalogPage> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-          child: TextField(
-            controller: _searchController,
-            onChanged: (v) {
-              _searchDebounce?.cancel();
-              _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                if (!mounted) return;
-                setState(() => _query = v.trim());
-                _load();
-              });
-            },
-            style: const TextStyle(color: AppColors.textPrimary),
-            decoration: InputDecoration(
-              hintText: 'general.search'.tr(),
-              hintStyle: const TextStyle(color: AppColors.textHint),
-              prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
-              isDense: true,
-              filled: true,
-              fillColor: AppColors.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+          child: TvTextEntry(
+            field: TextField(
+              controller: _searchController,
+              onChanged: (v) {
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                  if (!mounted) return;
+                  setState(() => _query = v.trim());
+                  _load();
+                });
+              },
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'general.search'.tr(),
+                hintStyle: const TextStyle(color: AppColors.textHint),
+                prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
+                isDense: true,
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),
@@ -577,8 +581,10 @@ class _TypeFilterRow extends StatelessWidget {
         itemBuilder: (context, i) {
           final (type, key) = _options[i];
           final active = type == selected;
-          return GestureDetector(
-            onTap: () => onSelected(type),
+          return TvFocusable(
+            scale: 1,
+            borderRadius: 17,
+            onPressed: () => onSelected(type),
             child: AnimatedContainer(
               duration: Duration(
                 milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 120,
@@ -647,8 +653,10 @@ class _CatalogLanguageRow extends StatelessWidget {
           final active = code == 'all'
               ? selected.isEmpty
               : selected.any((c) => srclang.normalizeLang(c) == code);
-          return GestureDetector(
-            onTap: () => onToggle(code),
+          return TvFocusable(
+            scale: 1,
+            borderRadius: 17,
+            onPressed: () => onToggle(code),
             child: AnimatedContainer(
               duration: Duration(
                 milliseconds: MediaQuery.disableAnimationsOf(context) ? 0 : 120,

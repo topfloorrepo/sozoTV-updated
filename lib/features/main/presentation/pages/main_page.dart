@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../widgets/scroll_compact_navigation.dart';
 import 'dart:ui';
+import 'dart:ui' as ui show TextDirection;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
@@ -63,6 +64,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   /// One scope per tab so switching away and back restores the exact widget the
   /// D-pad was on, instead of dumping focus at the top of the page.
   final Map<TabId, FocusScopeNode> _tvTabScopes = {};
+  final Map<TabId, FocusNode> _tvRailNodes = {};
+
+  FocusNode _tvRailNode(int index) => _tvRailNodes.putIfAbsent(
+    _visibleTabs[index],
+    () => FocusNode(debugLabel: 'tvRail.${_visibleTabs[index].name}'),
+  );
 
   /// True while focus sits inside the tab body rather than on the rail. Drives
   /// [PopScope.canPop] so BACK means "leave the content" before it means "go
@@ -174,6 +181,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     NavPrefs.tabOrder.removeListener(_onTabSetChange);
     ShowcaseView.getNamed(_showcaseScope).unregister();
     _tvRailScope.dispose();
+    for (final node in _tvRailNodes.values) {
+      node.dispose();
+    }
     _hiveService.currentProviderChanged.removeListener(_onProviderStored);
     for (final n in _tvTabScopes.values) {
       n.dispose();
@@ -315,8 +325,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       last.requestFocus();
       return;
     }
-    scope.requestFocus();
-    scope.nextFocus();
+    final first = FocusTraversalGroup.of(context).findFirstFocus(scope);
+    first?.requestFocus();
   }
 
   /// Focus-follows-selection on the rail: arrowing up/down switches the tab
@@ -330,38 +340,45 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Widget _buildTvShell(List<Widget> tabs, List<AppTabDef> defs) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // Content is inset by the rail's COLLAPSED width. The rail expands
-          // over the top of it (see below), so gaining focus never reflows the
-          // page underneath.
-          Positioned.fill(
-            left: _SozoNavRail.collapsedWidth,
-            child: Focus(
-              // Not focusable itself — it exists purely to observe whether
-              // focus is anywhere inside the tab body, which BACK keys off.
-              canRequestFocus: false,
-              skipTraversal: true,
-              onFocusChange: (inside) {
-                if (_tvContentFocused == inside) return;
-                setState(() => _tvContentFocused = inside);
-              },
-              child: IndexedStack(index: _index, children: tabs),
+      body: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+        child: Stack(
+          children: [
+            // Content is inset by the rail's COLLAPSED width. The rail expands
+            // over the top of it (see below), so gaining focus never reflows the
+            // page underneath.
+            PositionedDirectional(
+              start: _SozoNavRail.collapsedWidth + 12,
+              end: 0,
+              top: 0,
+              bottom: 0,
+              child: Focus(
+                // Not focusable itself — it exists purely to observe whether
+                // focus is anywhere inside the tab body, which BACK keys off.
+                canRequestFocus: false,
+                skipTraversal: true,
+                onFocusChange: (inside) {
+                  if (_tvContentFocused == inside) return;
+                  setState(() => _tvContentFocused = inside);
+                },
+                child: IndexedStack(index: _index, children: tabs),
+              ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: _SozoNavRail(
-              index: _index,
-              items: defs,
-              scope: _tvRailScope,
-              onSelect: _tvFocusTab,
-              onEnterContent: _tvEnterContent,
+            PositionedDirectional(
+              start: 0,
+              top: 0,
+              bottom: 0,
+              child: _SozoNavRail(
+                index: _index,
+                items: defs,
+                scope: _tvRailScope,
+                focusNodeFor: _tvRailNode,
+                onSelect: _tvFocusTab,
+                onEnterContent: _tvEnterContent,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -493,11 +510,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             if (didPop) return;
             if (isTvPlatform && _tvContentFocused) {
               // Restores the rail's last-focused button (the active tab).
-              _tvRailScope.requestFocus();
+              _tvRailNode(_index).requestFocus();
               return;
             }
             setState(() => _index = _homeIndex);
             _navController.goTo(_homeIndex);
+            if (isTvPlatform) _tvRailNode(_homeIndex).requestFocus();
           },
           child: isTvPlatform
               ? _buildTvShell(tabs, defs)
@@ -1511,6 +1529,7 @@ class _SozoNavRail extends StatefulWidget {
     required this.items,
     required this.onSelect,
     this.scope,
+    this.focusNodeFor,
     this.onEnterContent,
   });
 
@@ -1524,6 +1543,7 @@ class _SozoNavRail extends StatefulWidget {
   /// on the item the remote last sat on. Null on desktop, which has no focus
   /// model of its own to keep.
   final FocusScopeNode? scope;
+  final FocusNode Function(int)? focusNodeFor;
 
   /// TV only: what OK does once a tab is already selected.
   final VoidCallback? onEnterContent;
@@ -1576,6 +1596,7 @@ class _SozoNavRailState extends State<_SozoNavRail> {
           for (var i = 0; i < widget.items.length; i++)
             _SozoRailButton(
               item: widget.items[i],
+              focusNode: widget.focusNodeFor?.call(i),
               selected: widget.index == i,
               expanded: _expanded,
               // Initial focus for the whole app lands on the active tab — on a
@@ -1599,13 +1620,28 @@ class _SozoNavRailState extends State<_SozoNavRail> {
         child: rail,
       );
     }
-    return FocusScope(node: scope, onFocusChange: _setExpanded, child: rail);
+    final enterKey = Directionality.of(context) == ui.TextDirection.ltr
+        ? LogicalKeyboardKey.arrowRight
+        : LogicalKeyboardKey.arrowLeft;
+    return FocusScope(
+      node: scope,
+      onFocusChange: _setExpanded,
+      onKeyEvent: (_, event) {
+        if (event.logicalKey != enterKey || event is KeyUpEvent) {
+          return KeyEventResult.ignored;
+        }
+        if (event is KeyDownEvent) widget.onEnterContent?.call();
+        return KeyEventResult.handled;
+      },
+      child: rail,
+    );
   }
 }
 
 class _SozoRailButton extends StatefulWidget {
   const _SozoRailButton({
     required this.item,
+    this.focusNode,
     required this.selected,
     required this.expanded,
     required this.autofocus,
@@ -1614,6 +1650,7 @@ class _SozoRailButton extends StatefulWidget {
   });
 
   final AppTabDef item;
+  final FocusNode? focusNode;
   final bool selected;
   final bool expanded;
   final bool autofocus;
@@ -1646,6 +1683,7 @@ class _SozoRailButtonState extends State<_SozoRailButton> {
         // the remote's OK button works through it once app.dart binds
         // select/gameButtonA to that intent.
         autofocus: widget.autofocus,
+        focusNode: widget.focusNode,
         onTap: widget.onActivate,
         onFocusChange: (v) {
           setState(() => _focused = v);
@@ -1665,8 +1703,12 @@ class _SozoRailButtonState extends State<_SozoRailButton> {
             color: highlighted ? AppColors.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: highlighted ? AppColors.border : Colors.transparent,
-              width: 0.6,
+              color: _focused && widget.focusNode != null
+                  ? AppColors.textPrimary
+                  : highlighted
+                  ? AppColors.border
+                  : Colors.transparent,
+              width: widget.focusNode != null ? 2 : 0.6,
             ),
           ),
           child: Row(

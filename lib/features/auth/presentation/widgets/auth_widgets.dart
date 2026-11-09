@@ -5,6 +5,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:soplay/core/widgets/app_buttons.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/theme/app_theme.dart';
+import 'package:soplay/core/tv/tv.dart';
+import 'package:soplay/core/tv/tv_input_navigation.dart';
 import 'package:soplay/features/onboarding/presentation/widgets/poster_wall.dart';
 
 /// The shell every auth screen sits in: a living poster header that dissolves
@@ -34,6 +36,34 @@ class AuthScaffold extends StatelessWidget {
     final headerHeight = (MediaQuery.sizeOf(context).height * 0.34).clamp(
       200.0,
       320.0,
+    );
+
+    final form = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            height: 1.15,
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            subtitle!,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        ...children,
+      ],
     );
 
     return Scaffold(
@@ -80,36 +110,18 @@ class AuthScaffold extends StatelessWidget {
                       padding: EdgeInsets.only(
                         left: 20,
                         right: 20,
-                        top: headerHeight * 0.42,
+                        top: headerHeight * (isTvPlatform ? 0.12 : 0.42),
                         bottom: 28,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            title,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              height: 1.15,
-                            ),
-                          ),
-                          if (subtitle != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              subtitle!,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 14,
-                                height: 1.4,
+                      child: isTvPlatform
+                          ? Align(
+                              alignment: Alignment.topCenter,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 560),
+                                child: form,
                               ),
-                            ),
-                          ],
-                          const SizedBox(height: 24),
-                          ...children,
-                        ],
-                      ),
+                            )
+                          : form,
                     ),
                   ),
                 ],
@@ -230,7 +242,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
+    final field = TextFormField(
       controller: widget.controller,
       focusNode: _focusNode,
       keyboardType: widget.keyboardType,
@@ -273,6 +285,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
       ),
       validator: widget.validator,
     );
+    return TvInputNavigation(focusNode: _focusNode, child: field);
   }
 }
 

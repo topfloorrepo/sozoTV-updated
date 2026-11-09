@@ -28,6 +28,7 @@ class AppTheme {
     brightness: Brightness.dark,
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.background,
+    focusColor: isTvPlatform ? Colors.white30 : null,
     colorScheme: ColorScheme(
       brightness: Brightness.dark,
       primary: AppColors.primary,
@@ -183,6 +184,17 @@ class AppTheme {
           fontWeight: FontWeight.w600,
           letterSpacing: 0.2,
         ),
+      ).copyWith(
+        side: isTvPlatform
+            ? WidgetStateBorderSide.resolveWith(
+                (states) => BorderSide(
+                  color: states.contains(WidgetState.focused)
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                  width: states.contains(WidgetState.focused) ? 3 : 1.5,
+                ),
+              )
+            : null,
       ),
     ),
     textButtonTheme: TextButtonThemeData(

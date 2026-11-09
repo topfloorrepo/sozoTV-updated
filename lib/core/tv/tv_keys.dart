@@ -45,17 +45,8 @@ class TvKeys {
       k == LogicalKeyboardKey.goBack || k == LogicalKeyboardKey.escape;
 }
 
-/// App-wide shortcut layer for TV.
-///
-/// Flutter's default shortcuts already bind enter/space/numpadEnter to
-/// [ActivateIntent], which is what makes the app's existing `InkWell`,
-/// `ListTile` and button widgets work with a remote for free. What is missing
-/// is [LogicalKeyboardKey.select] — the D-pad centre button — and a game
-/// controller's A button, so this adds both. Without them the D-pad can move
-/// focus but can never press anything.
-///
-/// Returns [child] unchanged when `isTvPlatform` is false, so wrapping the app
-/// root with this costs a phone or desktop build exactly one extra `if`.
+/// Maps remote buttons to Material activation and consumes auto-repeat before
+/// it reaches Flutter's fallback shortcuts. Directional keys can still repeat.
 class TvShortcuts extends StatelessWidget {
   const TvShortcuts({super.key, required this.child});
 
@@ -63,14 +54,23 @@ class TvShortcuts extends StatelessWidget {
 
   static const Map<ShortcutActivator, Intent> _map =
       <ShortcutActivator, Intent>{
-        SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.gameButtonA): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.select, includeRepeats: false):
+            ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.gameButtonA, includeRepeats: false):
+            ActivateIntent(),
       };
 
   @override
   Widget build(BuildContext context) {
     if (!isTvPlatform) return child;
-    return Shortcuts(shortcuts: _map, child: child);
+    return Focus(
+      canRequestFocus: false,
+      onKeyEvent: (_, event) =>
+          event is KeyRepeatEvent && TvKeys.isActivate(event.logicalKey)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored,
+      child: Shortcuts(shortcuts: _map, child: child),
+    );
   }
 }
 

@@ -1,3 +1,4 @@
+import 'package:soplay/core/tv/tv_text_entry.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -35,7 +36,14 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
   String _repoName = '';
   List<Map<String, dynamic>> _plugins = const [];
   final Set<String> _busy = <String>{};
+  final _searchController = TextEditingController();
   String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -254,20 +262,23 @@ class _CloudStreamPluginsPageState extends State<CloudStreamPluginsPage> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: TextField(
-            style: const TextStyle(color: Colors.white),
-            onChanged: (v) => setState(() => _query = v),
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: 'ext.search_plugins'.tr(),
-              hintStyle: const TextStyle(color: AppColors.textHint),
-              prefixIcon: const Icon(Icons.search,
-                  color: AppColors.textHint, size: 20),
-              filled: true,
-              fillColor: AppColors.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
+          child: TvTextEntry(
+            field: TextField(
+              controller: _searchController,
+              style: const TextStyle(color: Colors.white),
+              onChanged: (v) => setState(() => _query = v),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'ext.search_plugins'.tr(),
+                hintStyle: const TextStyle(color: AppColors.textHint),
+                prefixIcon: const Icon(Icons.search,
+                    color: AppColors.textHint, size: 20),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),

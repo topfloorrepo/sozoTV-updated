@@ -1,3 +1,5 @@
+import 'package:soplay/features/extensions/presentation/widgets/repository_page_body.dart';
+import 'package:soplay/core/tv/tv_text_entry.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -119,6 +121,9 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
   }
 
   Future<void> _remove(String url) async {
+    if (!await confirmRepositoryRemoval(context, url) || !mounted || _busy) {
+      return;
+    }
     await _store.removeRepo(url);
     if (!mounted) return;
     _reloadProviders();
@@ -187,9 +192,8 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
+      body: RepositoryPageBody(
+        form: [
           _header(),
           const SizedBox(height: 16),
           _addCard(),
@@ -197,7 +201,8 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
             const SizedBox(height: 12),
             _statusBanner(),
           ],
-          const SizedBox(height: 24),
+        ],
+        library: [
           RecommendedReposSection(
             kind: ExtensionRepoKind.mangayomi,
             installedUrls: repos.toSet(),
@@ -280,31 +285,35 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              controller: _controller,
-              enabled: !_busy,
-              cursorColor: _accent,
-              style: const TextStyle(color: Colors.white),
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: 'ext.index_url'.tr(),
-                labelStyle: const TextStyle(color: AppColors.textHint),
-                floatingLabelStyle: const TextStyle(color: _accent),
-                hintText: 'https://…/index.json',
-                hintStyle: const TextStyle(color: AppColors.textHint),
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+            TvTextEntry(
+              autofocus: true,
+              field: TextField(
+                controller: _controller,
+                keyboardType: TextInputType.url,
+                enabled: !_busy,
+                cursorColor: _accent,
+                style: const TextStyle(color: Colors.white),
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: 'ext.index_url'.tr(),
+                  labelStyle: const TextStyle(color: AppColors.textHint),
+                  floatingLabelStyle: const TextStyle(color: _accent),
+                  hintText: 'https://…/index.json',
+                  hintStyle: const TextStyle(color: AppColors.textHint),
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                        color: _accent.withValues(alpha: 0.6), width: 1.4),
+                  ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                      color: _accent.withValues(alpha: 0.6), width: 1.4),
-                ),
+                onSubmitted: (_) => _add(),
               ),
-              onSubmitted: (_) => _add(),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -400,6 +409,7 @@ class _MangayomiSourcesPageState extends State<MangayomiSourcesPage> {
                     const TextStyle(color: AppColors.textHint, fontSize: 11)),
             trailing: IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              tooltip: 'general.remove'.tr(),
               onPressed: _busy ? null : () => _remove(url),
             ),
           ),

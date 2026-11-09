@@ -1,3 +1,5 @@
+import 'package:soplay/core/tv/tv.dart';
+import 'package:soplay/core/tv/tv_text_entry.dart';
 import 'dart:async';
 import 'dart:ui';
 
@@ -132,46 +134,48 @@ class _ProvidersPageState extends State<ProvidersPage> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (v) {
-                    _searchDebounce?.cancel();
-                    _searchDebounce = Timer(
-                      const Duration(milliseconds: 200),
-                      () {
-                        if (mounted) setState(() => _query = v.trim());
-                      },
-                    );
-                  },
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: 'profile.search_providers_hint'.tr(),
-                    hintStyle: const TextStyle(color: AppColors.textHint),
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      color: AppColors.textHint,
-                      size: 20,
-                    ),
-                    suffixIcon: _query.isEmpty
-                        ? null
-                        : IconButton(
-                            icon: const Icon(
-                              Icons.clear,
-                              color: AppColors.textHint,
-                              size: 20,
+                child: TvTextEntry(
+                  field: TextField(
+                    controller: _searchController,
+                    onChanged: (v) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(
+                        const Duration(milliseconds: 200),
+                        () {
+                          if (mounted) setState(() => _query = v.trim());
+                        },
+                      );
+                    },
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'profile.search_providers_hint'.tr(),
+                      hintStyle: const TextStyle(color: AppColors.textHint),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppColors.textHint,
+                        size: 20,
+                      ),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(
+                                Icons.clear,
+                                color: AppColors.textHint,
+                                size: 20,
+                              ),
+                              onPressed: () => setState(() {
+                                _searchController.clear();
+                                _query = '';
+                              }),
                             ),
-                            onPressed: () => setState(() {
-                              _searchController.clear();
-                              _query = '';
-                            }),
-                          ),
-                    filled: true,
-                    fillColor: AppColors.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                      filled: true,
+                      fillColor: AppColors.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
                 ),
@@ -1093,6 +1097,12 @@ class _ProviderListTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
+                if (isTvPlatform && _canSolveCloudflare)
+                  IconButton(
+                    onPressed: () => _solveCloudflare(context),
+                    icon: const Icon(Icons.shield_outlined),
+                    tooltip: 'cloudflare.solve'.tr(),
+                  ),
                 IconButton(
                   onPressed: onToggleFavorite,
                   icon: Icon(

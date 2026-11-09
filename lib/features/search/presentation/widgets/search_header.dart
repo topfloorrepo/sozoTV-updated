@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:soplay/core/theme/app_colors.dart';
 import 'package:soplay/core/tv/tv.dart';
+import 'package:soplay/core/tv/tv_text_entry.dart';
 
 class SearchStickyHeader extends StatelessWidget {
   const SearchStickyHeader({
@@ -187,15 +188,6 @@ class _SearchField extends StatelessWidget {
               color: AppColors.textHint,
               size: 18,
             );
-            // Android TV: the clear (X) is the only way to drop a query
-            // without a hardware keyboard, so it needs to be a focus stop.
-            if (isTvPlatform) {
-              return TvFocusable(
-                onPressed: onClear,
-                borderRadius: 9,
-                child: icon,
-              );
-            }
             return IconButton(
               tooltip: 'general.clear'.tr(),
               onPressed: onClear,
@@ -214,6 +206,17 @@ class _SearchField extends StatelessWidget {
       },
       onTapOutside: (_) => focus.unfocus(),
     );
+
+    if (isTvPlatform) {
+      return Row(
+        children: [
+          Expanded(
+            child: TvTextEntry(field: field, submitOnDone: true),
+          ),
+          ?voiceButton,
+        ],
+      );
+    }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),

@@ -1,3 +1,4 @@
+import 'package:soplay/core/tv/tv_text_entry.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -1696,24 +1697,26 @@ class _SearchBarHeader extends SliverPersistentHeaderDelegate {
       child: Column(
         children: [
           Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              decoration: InputDecoration(
-                isDense: true,
-                constraints: BoxConstraints.tightFor(
-                  height: fieldHeightFor(context),
+            child: TvTextEntry(
+              field: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                decoration: InputDecoration(
+                  isDense: true,
+                  constraints: BoxConstraints.tightFor(
+                    height: fieldHeightFor(context),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  hintText: 'profile.search_providers_hint'.tr(),
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'general.clear'.tr(),
+                          onPressed: onClear,
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                hintText: 'profile.search_providers_hint'.tr(),
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: query.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'general.clear'.tr(),
-                        onPressed: onClear,
-                        icon: const Icon(Icons.close, size: 18),
-                      ),
               ),
             ),
           ),

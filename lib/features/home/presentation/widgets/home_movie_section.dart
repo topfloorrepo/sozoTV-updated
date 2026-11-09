@@ -118,15 +118,15 @@ class MovieSection extends StatelessWidget {
             child: header,
           ),
           SizedBox(
-            height: isDesktopPlatform ? 300 : 195,
+            height: isTvPlatform ? 244 : (isDesktopPlatform ? 300 : 195),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               // Don't clip the hover scale/ring on desktop.
               clipBehavior:
-                  isDesktopPlatform ? Clip.none : Clip.hardEdge,
+                  (isTvPlatform || isDesktopPlatform) ? Clip.none : Clip.hardEdge,
               padding: EdgeInsets.symmetric(
                 horizontal: 12,
-                vertical: isDesktopPlatform ? 4 : 0,
+                vertical: isTvPlatform ? 8 : (isDesktopPlatform ? 4 : 0),
               ),
               itemCount: movies.length > 16 ? 16 : movies.length,
               itemBuilder: (_, index) => ItemAppear(
@@ -193,7 +193,7 @@ class _MovieCardState extends State<_MovieCard> {
     final desktop = isDesktopPlatform;
 
     // Sozo-Desktop item sizing/styling on desktop; untouched on mobile.
-    final width = desktop ? 152.0 : 118.0;
+    final width = isTvPlatform ? 144.0 : (desktop ? 152.0 : 118.0);
     final radius = desktop ? 12.0 : 10.0;
 
     // Computed once here rather than inside the image, so the tile and the

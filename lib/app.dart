@@ -200,12 +200,6 @@ class _MyAppState extends State<MyApp> {
                 ),
               ),
             );
-            // Android TV: Flutter's default shortcut map activates the focused
-            // widget on enter/space, but a remote's OK button arrives as
-            // DPAD_CENTER (LogicalKeyboardKey.select) and a game controller's as
-            // gameButtonA. Without these two bindings the D-pad can move focus
-            // but can never press anything. Additive + TV-gated: phone and
-            // desktop fall through to the paths below unchanged.
             if (isTvPlatform) return TvShortcuts(child: app);
             if (!isDesktopPlatform) return app;
             final shell = Column(

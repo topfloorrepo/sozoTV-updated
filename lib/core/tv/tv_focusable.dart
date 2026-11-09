@@ -140,10 +140,12 @@ class _TvFocusableState extends State<TvFocusable> {
     if (event is KeyUpEvent) {
       // Without a long press the down already fired; firing again here made
       // every toggle switch on and straight back off.
-      if (widget.onLongPressed == null) return KeyEventResult.handled;
+      if (widget.onLongPressed == null || _longPressTimer == null) {
+        return KeyEventResult.handled;
+      }
       _longPressTimer?.cancel();
       _longPressTimer = null;
-      if (!_longPressFired) widget.onPressed?.call();
+      if (!_longPressFired && _node.hasPrimaryFocus) widget.onPressed?.call();
       _longPressFired = false;
       return KeyEventResult.handled;
     }
@@ -167,7 +169,7 @@ class _TvFocusableState extends State<TvFocusable> {
 
     // TV boxes can have a pointer (mouse mode, some remotes), so keep taps too.
     final Widget tappable =
-        (widget.onPressed == null && widget.onLongPressed == null)
+        !_interactive
         ? widget.child
         : GestureDetector(
             onTap: widget.onPressed,

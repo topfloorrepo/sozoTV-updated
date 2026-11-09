@@ -79,10 +79,12 @@ extension _PlayerTv on _PlayerPageState {
       _controlsAnimation.forward();
     }
     if (force || wasHidden || _tvRootFocus.hasPrimaryFocus) {
-      final target = focus ?? _tvDefaultFocusNode();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (target.context != null) {
+        if (!mounted || !_controlsVisible || _panel != _SidePanel.none) return;
+        final target = focus?.context != null && focus!.canRequestFocus
+            ? focus
+            : _tvDefaultFocusNode();
+        if (target.context != null && target.canRequestFocus) {
           target.requestFocus();
         } else if (!_tvRootFocus.nextFocus()) {
           // Nothing focusable is on screen yet (still buffering, say). Holding
@@ -90,6 +92,7 @@ extension _PlayerTv on _PlayerPageState {
           _tvRootFocus.requestFocus();
         }
       });
+      WidgetsBinding.instance.ensureVisualUpdate();
     }
     _scheduleHide();
   }
@@ -112,7 +115,7 @@ extension _PlayerTv on _PlayerPageState {
   /// of [_tvRootFocus] — key events would stop arriving and the remote would go
   /// dead until the next tap.
   void _tvHandOffFocusToRoot() {
-    if (!isTvPlatform) return;
+    if (!isTvPlatform || !_tvRootFocus.hasFocus) return;
     final current = FocusManager.instance.primaryFocus;
     if (current != null && current != _tvRootFocus) {
       // Disposition.scope hands primary focus to the enclosing scope, which is
@@ -138,7 +141,7 @@ extension _PlayerTv on _PlayerPageState {
   /// slider drives, so the position label and the storyboard thumbnail popup
   /// light up for a remote exactly as they do for a finger — no parallel
   /// preview machinery.
-  void _tvStepSeek(int direction) {
+  void _tvStepSeek(int direction, {int? seconds}) {
     final c = _controller;
     if (c == null || !c.value.isInitialized || _isLive) return;
     if (_partyBlockLocal()) return;
@@ -154,7 +157,7 @@ extension _PlayerTv on _PlayerPageState {
 
     final base =
         _sliderDragValue.value ?? c.value.position.inMilliseconds.toDouble();
-    _sliderDragValue.value = (base + direction * _tvSeekStepSeconds * 1000)
+    _sliderDragValue.value = (base + direction * (seconds ?? _tvSeekStepSeconds) * 1000)
         .clamp(0.0, durationMs.toDouble());
 
     _hideTimer?.cancel();
@@ -164,6 +167,7 @@ extension _PlayerTv on _PlayerPageState {
 
   /// Applies a pending step-seek. Safe to call when nothing is pending.
   void _tvCommitSeek() {
+    if (_tvSeekCommit == null) return;
     _tvSeekCommit?.cancel();
     _tvSeekCommit = null;
     _tvSeekRepeats = 0;
@@ -177,6 +181,14 @@ extension _PlayerTv on _PlayerPageState {
     _seekTo(target);
     _clearDragAfterSeek(target);
     _scheduleHide();
+  }
+
+  void _tvCancelSeek() {
+    _tvSeekCommit?.cancel();
+    _tvSeekCommit = null;
+    _tvSeekRepeats = 0;
+    _tvSeekLastStep = null;
+    _sliderDragValue.value = null;
   }
 
   // --- BACK -------------------------------------------------------------------
@@ -193,15 +205,11 @@ extension _PlayerTv on _PlayerPageState {
       // The focused panel row is about to be unmounted, so focus must be moved
       // deliberately rather than left to fall wherever it lands.
       _closePanel();
-      _tvReveal(force: true);
       return;
     }
-    if (_sliderDragValue.value != null) {
+    if (_tvSeekCommit != null) {
       // Abandon an uncommitted scrub rather than leaving the player.
-      _tvSeekCommit?.cancel();
-      _tvSeekCommit = null;
-      _tvSeekRepeats = 0;
-      _sliderDragValue.value = null;
+      _tvCancelSeek();
       _scheduleHide();
       return;
     }
@@ -220,29 +228,47 @@ extension _PlayerTv on _PlayerPageState {
 
   /// Transport keys from the remote. Handled at any time, in any focus state,
   /// because a remote's play button means "play" whatever is on screen.
-  bool _handleTvMediaKey(LogicalKeyboardKey k) {
+  bool _handleTvMediaKey(LogicalKeyboardKey k, {required bool repeat}) {
+    if (repeat &&
+        k != LogicalKeyboardKey.mediaFastForward &&
+        k != LogicalKeyboardKey.mediaRewind) {
+      return switch (k) {
+        LogicalKeyboardKey.mediaPlayPause ||
+        LogicalKeyboardKey.mediaPlay ||
+        LogicalKeyboardKey.mediaPause ||
+        LogicalKeyboardKey.mediaStop ||
+        LogicalKeyboardKey.mediaTrackNext ||
+        LogicalKeyboardKey.mediaTrackPrevious => true,
+        _ => false,
+      };
+    }
     if (k == LogicalKeyboardKey.mediaPlayPause ||
         k == LogicalKeyboardKey.mediaPlay ||
         k == LogicalKeyboardKey.mediaPause) {
-      _togglePlay();
+      _togglePlay(
+        play: k == LogicalKeyboardKey.mediaPlayPause
+            ? null
+            : k == LogicalKeyboardKey.mediaPlay,
+      );
       _tvReveal();
       return true;
     }
     if (k == LogicalKeyboardKey.mediaStop) {
-      _controller?.pause();
+      _togglePlay(play: false);
       _tvReveal();
       return true;
     }
-    if (k == LogicalKeyboardKey.mediaFastForward) {
-      _seekRelative(const Duration(seconds: 30));
-      _showSeekRipple(1);
-      _tvReveal();
-      return true;
-    }
-    if (k == LogicalKeyboardKey.mediaRewind) {
-      _seekRelative(const Duration(seconds: -30));
-      _showSeekRipple(-1);
-      _tvReveal();
+    if (k == LogicalKeyboardKey.mediaFastForward ||
+        k == LogicalKeyboardKey.mediaRewind) {
+      if (_partyBlockLocal() || _isLive) return true;
+      if (_panel != _SidePanel.none) {
+        _seekRelative(Duration(
+          seconds: k == LogicalKeyboardKey.mediaFastForward ? 30 : -30,
+        ));
+      } else {
+        _tvReveal(focus: _tvSeekFocus, force: true);
+        _tvStepSeek(k == LogicalKeyboardKey.mediaFastForward ? 1 : -1, seconds: 30);
+      }
       return true;
     }
     // Series bounds, as the on-screen buttons use: the loaded page ends at a
@@ -266,7 +292,7 @@ extension _PlayerTv on _PlayerPageState {
     // Some launchers deliver BACK as a key event rather than a system pop; both
     // routes converge on _onTvBack, and PopScope covers the other one.
     if (k == LogicalKeyboardKey.goBack || k == LogicalKeyboardKey.escape) {
-      _onTvBack();
+      if (event is KeyDownEvent) _onTvBack();
       return KeyEventResult.handled;
     }
 
@@ -290,7 +316,9 @@ extension _PlayerTv on _PlayerPageState {
       return KeyEventResult.handled;
     }
 
-    if (_handleTvMediaKey(k)) return KeyEventResult.handled;
+    final repeat = event is KeyRepeatEvent;
+    if (repeat && _isTvSelect(k)) return KeyEventResult.handled;
+    if (_handleTvMediaKey(k, repeat: repeat)) return KeyEventResult.handled;
 
     // --- controls hidden: the D-pad is a transport control ---------------------
     if (!_controlsVisible) {
@@ -317,11 +345,12 @@ extension _PlayerTv on _PlayerPageState {
 
     // --- controls visible: the D-pad moves focus -------------------------------
     _scheduleHide();
+    if (_panel != _SidePanel.none) return KeyEventResult.ignored;
 
     // A pending scrub counts as "on the seek bar" even when the focus request
     // from the reveal has not landed yet — otherwise a fast second press would
     // be read as a focus move and jump the cursor off the bar mid-scrub.
-    if (_tvSeekFocus.hasPrimaryFocus || _sliderDragValue.value != null) {
+    if (_tvSeekFocus.hasPrimaryFocus || _tvSeekCommit != null) {
       if (k == LogicalKeyboardKey.arrowLeft) {
         _tvStepSeek(-1);
         _tvClaimSeekFocus();
@@ -335,7 +364,7 @@ extension _PlayerTv on _PlayerPageState {
       if (_isTvSelect(k)) {
         // OK on the bar means "go there now" if a scrub is pending, and
         // play/pause otherwise — so the bar is never a dead landing spot.
-        if (_sliderDragValue.value != null) {
+        if (_tvSeekCommit != null) {
           _tvCommitSeek();
         } else {
           _togglePlay();
@@ -346,7 +375,7 @@ extension _PlayerTv on _PlayerPageState {
           k == LogicalKeyboardKey.arrowDown) {
         // Leaving the bar commits whatever was previewed, then lets traversal
         // carry the keystroke on.
-        if (_sliderDragValue.value != null) _tvCommitSeek();
+        _tvCommitSeek();
       }
     }
 

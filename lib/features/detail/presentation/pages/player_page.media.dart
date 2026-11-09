@@ -2182,6 +2182,7 @@ extension _PlayerMedia on _PlayerPageState {
   }
 
   Future<int> _disposeController() async {
+    if (isTvPlatform) _tvCancelSeek();
     _jellyfinStop();
     final generation = ++_mediaGeneration;
     _hideTimer?.cancel();

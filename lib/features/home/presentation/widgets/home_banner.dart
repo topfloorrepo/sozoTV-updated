@@ -42,6 +42,7 @@ class _HomeBannerState extends State<HomeBanner> {
   Timer? _timer;
   int _page = 0;
   final Set<String> _trackedBanners = {};
+  final FocusNode _tvFocus = FocusNode(debugLabel: 'tvHomeBanner');
 
   @override
   void initState() {
@@ -59,7 +60,7 @@ class _HomeBannerState extends State<HomeBanner> {
           !TickerMode.valuesOf(context).enabled) {
         return;
       }
-      if (!_ctrl.hasClients) return;
+      if (!_ctrl.hasClients || (isTvPlatform && _tvFocus.hasFocus)) return;
       // Auto-advancing on top of a drag or a fling yanked the slide out from
       // under the finger; skip this tick and take the next one instead.
       if (_ctrl.position.isScrollingNotifier.value) return;
@@ -95,6 +96,7 @@ class _HomeBannerState extends State<HomeBanner> {
   void dispose() {
     _timer?.cancel();
     _ctrl.dispose();
+    _tvFocus.dispose();
     super.dispose();
   }
 
@@ -117,7 +119,7 @@ class _HomeBannerState extends State<HomeBanner> {
       );
     }
 
-    return SizedBox(
+    final banner = SizedBox(
       height: mobileHeroHeight(context),
       child: Stack(
         children: [
@@ -158,6 +160,12 @@ class _HomeBannerState extends State<HomeBanner> {
           ),
         ],
       ),
+    );
+    if (!isTvPlatform) return banner;
+    return Focus(
+      focusNode: _tvFocus,
+      canRequestFocus: false,
+      child: banner,
     );
   }
 }

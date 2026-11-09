@@ -679,6 +679,7 @@ class _PlayerPageState extends State<PlayerPage>
   final FocusScopeNode _tvPanelFocus = FocusScopeNode(
     debugLabel: 'tvPlayerPanel',
   );
+  FocusNode? _tvPanelTrigger;
   final FocusNode _tvPlayFocus = FocusNode(debugLabel: 'tvPlayerPlay');
   final FocusNode _tvSeekFocus = FocusNode(debugLabel: 'tvPlayerSeek');
 

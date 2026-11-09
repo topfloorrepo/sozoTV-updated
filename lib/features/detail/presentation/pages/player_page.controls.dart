@@ -105,11 +105,12 @@ extension _PlayerControls on _PlayerPageState {
     });
   }
 
-  void _togglePlay() {
+  void _togglePlay({bool? play}) {
     if (_partyBlockLocal()) return;
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
     final wasPlaying = c.value.isPlaying;
+    if (play == wasPlaying) return;
     if (wasPlaying) {
       c.pause();
     } else {
@@ -187,8 +188,8 @@ extension _PlayerControls on _PlayerPageState {
     // land within its listener's 500ms window left the thumb pinned for the
     // rest of the episode.
     final latched = _sliderDragValue.value;
+    final c = _controller;
     void listener() {
-      final c = _controller;
       if (c == null) {
         _sliderDragValue.value = null;
         return;
@@ -196,11 +197,13 @@ extension _PlayerControls on _PlayerPageState {
       final diff = (c.value.position - target).inMilliseconds.abs();
       if (diff < 500) {
         c.removeListener(listener);
-        _sliderDragValue.value = null;
+        if (identical(_controller, c) && _sliderDragValue.value == latched) {
+          _sliderDragValue.value = null;
+        }
       }
     }
 
-    _controller?.addListener(listener);
+    c?.addListener(listener);
     // Checked once now as well: media_kit shows the seek target at once, so
     // the position may already be there and no later change would say so.
     listener();
@@ -208,11 +211,11 @@ extension _PlayerControls on _PlayerPageState {
       // The user can pop the player within this second — _sliderDragValue is
       // disposed by then, so touching it would throw.
       if (!mounted) return;
-      _controller?.removeListener(listener);
+      c?.removeListener(listener);
       // Nothing is watching the position any more, so leaving the bar pinned
       // has no way back. Cleared unless a NEW drag has started since — that
       // one owns the value now and will schedule its own clear.
-      if (_sliderDragValue.value == latched) {
+      if (identical(_controller, c) && _sliderDragValue.value == latched) {
         _sliderDragValue.value = null;
       }
     });
@@ -239,6 +242,10 @@ extension _PlayerControls on _PlayerPageState {
 
   void _openPanel(_SidePanel panel) {
     if (isTvPlatform) {
+      if (_panel == _SidePanel.none) {
+        _tvPanelTrigger = FocusManager.instance.primaryFocus;
+      }
+      _tvCommitSeek();
       // Start a long episode list near the episode being watched. The rows are
       // built lazily, so autofocus alone cannot reach item 80 of 120 — the
       // offset is an estimate that puts the active row on screen, and D-pad
@@ -267,8 +274,10 @@ extension _PlayerControls on _PlayerPageState {
       // row (the active quality/episode) claims focus first and this becomes a
       // no-op — which is the order we want.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _panel == _SidePanel.none) return;
-        if (_tvPanelFocus.focusedChild == null) _tvPanelFocus.nextFocus();
+        if (!mounted || _panel != panel) return;
+        if (_tvPanelFocus.focusedChild != null || !_tvPanelFocus.nextFocus()) {
+          _tvPanelFocus.requestFocus();
+        }
       });
     }
   }
@@ -277,7 +286,11 @@ extension _PlayerControls on _PlayerPageState {
     setState(() => _panel = _SidePanel.none);
     // Give the remote back to the player controls; otherwise focus dies with
     // the unmounted panel and the next D-pad press has nowhere to go.
-    if (isTvPlatform) _tvRootFocus.requestFocus();
+    if (isTvPlatform) {
+      final trigger = _tvPanelTrigger;
+      _tvPanelTrigger = null;
+      _tvReveal(focus: trigger, force: true);
+    }
     _scheduleHide();
   }
 
@@ -1192,7 +1205,10 @@ extension _PlayerControls on _PlayerPageState {
     // IgnorePointer stops taps but leaves every button focusable, so on a
     // D-pad an invisible control would still take focus and fire on OK.
     final gated = isTvPlatform
-        ? ExcludeFocus(excluding: !_controlsVisible, child: overlay)
+        ? ExcludeFocus(
+            excluding: !_controlsVisible || _panel != _SidePanel.none,
+            child: overlay,
+          )
         : overlay;
 
     // A stall while the controls are hidden used to show nothing at all — the

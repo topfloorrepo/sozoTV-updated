@@ -1,3 +1,5 @@
+import 'package:soplay/features/extensions/presentation/widgets/repository_page_body.dart';
+import 'package:soplay/core/tv/tv_text_entry.dart';
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -187,6 +189,9 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
   }
 
   Future<void> _remove(String url) async {
+    if (!await confirmRepositoryRemoval(context, url) || !mounted || _busy) {
+      return;
+    }
     await MangaChannel.removeRepo(url);
     if (!mounted) return;
     _reloadProviders();
@@ -225,9 +230,8 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
+      body: RepositoryPageBody(
+        form: [
           _header(),
           const SizedBox(height: 16),
           _addCard(),
@@ -235,7 +239,8 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
             const SizedBox(height: 12),
             _statusBanner(),
           ],
-          const SizedBox(height: 24),
+        ],
+        library: [
           RecommendedReposSection(
             kind: ExtensionRepoKind.manga,
             installedUrls: {for (final r in _repos) (r['url'] ?? '').trim()},
@@ -408,40 +413,44 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              controller: _controller,
-              enabled: !_busy,
-              cursorColor: _accent,
-              style: const TextStyle(color: Colors.white),
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: 'manga.repo_url'.tr(),
-                labelStyle: const TextStyle(color: AppColors.textHint),
-                floatingLabelStyle: TextStyle(color: _accent),
-                hintText: 'https://…/index.min.json',
-                hintStyle: const TextStyle(color: AppColors.textHint),
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+            TvTextEntry(
+              autofocus: true,
+              field: TextField(
+                controller: _controller,
+                keyboardType: TextInputType.url,
+                enabled: !_busy,
+                cursorColor: _accent,
+                style: const TextStyle(color: Colors.white),
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: 'manga.repo_url'.tr(),
+                  labelStyle: const TextStyle(color: AppColors.textHint),
+                  floatingLabelStyle: TextStyle(color: _accent),
+                  hintText: 'https://…/index.min.json',
+                  hintStyle: const TextStyle(color: AppColors.textHint),
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                        color: _accent.withValues(alpha: 0.6), width: 1.4),
+                  ),
+                  suffixIcon: _controller.text.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.clear, color: AppColors.textHint),
+                          tooltip: 'general.clear'.tr(),
+                          onPressed: _busy
+                              ? null
+                              : () => setState(() => _controller.clear()),
+                        ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                      color: _accent.withValues(alpha: 0.6), width: 1.4),
-                ),
-                suffixIcon: _controller.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear, color: AppColors.textHint),
-                        tooltip: 'general.clear'.tr(),
-                        onPressed: _busy
-                            ? null
-                            : () => setState(() => _controller.clear()),
-                      ),
+                onSubmitted: (_) => _add(),
               ),
-              onSubmitted: (_) => _add(),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -537,6 +546,7 @@ class _MangaSourcesPageState extends State<MangaSourcesPage> {
               style: const TextStyle(color: AppColors.textHint, fontSize: 11)),
           trailing: IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            tooltip: 'general.remove'.tr(),
             onPressed: _busy ? null : () => _remove(url),
           ),
         ),
